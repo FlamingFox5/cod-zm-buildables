@@ -33,50 +33,61 @@ ENT.MaxisVoxTable = {
 	["Initial_A"] = {
 		["vox"] = "weapons/tfa_bo2/drone/vo/maxi/vox_maxi_maxis_drone_1_d_0.wav",
 		["length"] = 10.5,
+		["stale"] = -1,
 	},
 	["Initial_B"] = {
 		["vox"] = "weapons/tfa_bo2/drone/vo/maxi/vox_maxi_maxis_drone_4_d_0.wav",
 		["length"] = 8,
+		["stale"] = -1,
 	},
 	["Hover"] = {
 		["vox"] = "weapons/tfa_bo2/drone/vo/vox_maxi_drone_hover_d_0.wav",
 		["length"] = 3,
+		["stale"] = -1,
 	},
 	["Target"] = {
 		["vox"] = "weapons/tfa_bo2/drone/vo/vox_maxi_drone_holding_d_0.wav",
 		["wait"] = 12,
 		["length"] = 3,
+		["stale"] = 4,
 	},
 	["Scan"] = {
 		["vox"] = "weapons/tfa_bo2/drone/vo/vox_maxi_drone_scan_d_0.wav",
 		["wait"] = 8,
 		["length"] = 2.5,
+		["stale"] = 4,
 	},
 	["Attack"] = { 
 		["vox"] = { "weapons/tfa_bo2/drone/vo/attacking/vox_maxi_drone_attacking_d_0.wav", "weapons/tfa_bo2/drone/vo/attacking/vox_maxi_drone_attacking_d_1.wav", "weapons/tfa_bo2/drone/vo/attacking/vox_maxi_drone_attacking_d_2.wav" },
 		["wait"] = 8,
 		["length"] = 3,
+		["stale"] = 2,
 	},
 	["Kill"] = {
 		["vox"] = { "weapons/tfa_bo2/drone/vo/killed/vox_maxi_drone_killed_d_0.wav", "weapons/tfa_bo2/drone/vo/killed/vox_maxi_drone_killed_d_1.wav", "weapons/tfa_bo2/drone/vo/killed/vox_maxi_drone_killed_d_2.wav", "weapons/tfa_bo2/drone/vo/killed/vox_maxi_drone_killed_d_3.wav" },
 		["length"] = 2.5,
+		["stale"] = 2,
 	},
 	["Pickup"] = {
 		["vox"] = { "weapons/tfa_bo2/drone/vo/pickups/vox_maxi_drone_pickups_d_0.wav", "weapons/tfa_bo2/drone/vo/pickups/vox_maxi_drone_pickups_d_1.wav", "weapons/tfa_bo2/drone/vo/pickups/vox_maxi_drone_pickups_d_2.wav", "weapons/tfa_bo2/drone/vo/pickups/vox_maxi_drone_pickups_d_3.wav", "weapons/tfa_bo2/drone/vo/pickups/vox_maxi_drone_pickups_d_4.wav" },
 		["length"] = 3,
+		["stale"] = -1,
 	},
 	["Revive"] = {
 		["vox"] = { "weapons/tfa_bo2/drone/vo/revive/vox_maxi_drone_revive_d_0.wav", "weapons/tfa_bo2/drone/vo/revive/vox_maxi_drone_revive_d_1.wav", "weapons/tfa_bo2/drone/vo/revive/vox_maxi_drone_revive_d_2.wav", "weapons/tfa_bo2/drone/vo/revive/vox_maxi_drone_revive_d_3.wav", "weapons/tfa_bo2/drone/vo/revive/vox_maxi_drone_revive_d_4.wav" },
 		["length"] = 3,
+		["stale"] = -1,
 	},
 	["Upgrade"] = {
 		["vox"] = "weapons/tfa_bo2/drone/vo/upgraded/vox_maxi_drone_upgraded_d_0.wav",
 		["length"] = 3,
+		["stale"] = -1,
 	},
 	["Ambient"] = {
 		["vox"] = { "weapons/tfa_bo2/drone/vo/ambient/vox_maxi_drone_ambient_1_d_0.wav", "weapons/tfa_bo2/drone/vo/ambient/vox_maxi_drone_ambient_2_d_0.wav", "weapons/tfa_bo2/drone/vo/ambient/vox_maxi_drone_ambient_3_d_0.wav", "weapons/tfa_bo2/drone/vo/ambient/vox_maxi_drone_ambient_4_d_0.wav", "weapons/tfa_bo2/drone/vo/ambient/vox_maxi_drone_ambient_5_d_0.wav", "weapons/tfa_bo2/drone/vo/ambient/vox_maxi_drone_ambient_6_d_0.wav", "weapons/tfa_bo2/drone/vo/ambient/vox_maxi_drone_ambient_7_d_0.wav", "weapons/tfa_bo2/drone/vo/ambient/vox_maxi_drone_ambient_8_d_0.wav", "weapons/tfa_bo2/drone/vo/ambient/vox_maxi_drone_ambient_9_d_0.wav" },
 		["wait"] = 24, // repeat protection
 		["length"] = 4, // duration till another vox can play
+		["stale"] = 4, // how long until we give up trying to play the vox, -1 for never
 		["interrupt"] = true, // can we be interrupted by anything except ourselves
 	}
 }

@@ -610,7 +610,7 @@ function ENT:Initialize()
 	// position the drone will return to
 	self:SetHomePosition( vecEnd, trace )
 
-	self.desired_yaw = self:GetAngles()[2]
+	self.desired_angled = self:GetAngles()
 
 	self.forced_action = DRONE_TO_HOME_POSITION
 	self.current_action = DRONE_TO_IDLE
@@ -662,6 +662,7 @@ function ENT:Initialize()
 	self.climb_goal_tolerance = 16 // pathing along jump/climb nodes
 	self.goal_tolerance = 24
 	self.scripted_tolerance = 60
+	self.path_door_tolerance = 128 // distance to nearest door along path before opening it
 
 	self.turning_roll = 20
 
@@ -682,7 +683,7 @@ function ENT:Initialize()
 
 	self.prop_blocked_start = nil // handled by stuck system
 	self.prop_blocked_path = nil // handled by stuck system
-	self.prop_blocked_wait = 1.5
+	self.prop_blocked_wait = 0.5
 	self.prop_pushing_wait = 0.2
 	self.prop_pushing_table = {} // for entities were pushing
 
@@ -694,16 +695,16 @@ function ENT:Initialize()
 
 	self.last_repath_time = CurTime() // this fucking sucks
 	self.repathing_time = 6
-	self.repathing_distance = 200 // minimum distance the total path length must be before considering repathing
+	self.repathing_distance = 600 // minimum distance the total path length must be before considering repathing
 	self.player_repath_distance = 400 // minimum distance the player must be from our current goal pos before considering repathing
 
 	self.player_nearby_repath_distance = 80 // how close to the player we must be [ before considering repathing when we are near the player ]
 	self.player_nearby_repath_node_distance = 40 // how close to the current path goal we must be ...^
-	self.player_nearby_repath_total_distance = 300 // how long the current path must be ...^
+	self.player_nearby_repath_total_distance = 1000 
 
 	self.player_behind_repath_dot = 0.25 // the minimum dot product to the player against our current pathing direction [ before considering repathing when we pass the player ]
 	self.player_behind_repath_time = 2 // how old the current path must be ...^
-	self.player_behind_repath_total_distance = 400 // how long the current path must be ...^
+	self.player_behind_repath_distance = 800 // how long the current path must be ...^
 
 	self.current_ground_distance = self.ground_distance
 	self.current_ground_offset = Vector( 0, 0, self.current_ground_distance )
@@ -715,6 +716,8 @@ function ENT:Initialize()
 	self.current_path_length = 0
 	self.current_path_distance = 0
 	self.current_path_direction = self:GetForward()
+	self.current_path_climbing = false
+	self.current_path_climbing_with_player = false
 	self.current_path_nav = NULL // CNavArea
 	self.current_path_step = 1
 	self.current_path_type = 0 // enum
@@ -831,8 +834,8 @@ function ENT:Think()
 			debugoverlay.Text( self:GetPos() + vector_up * 10, "Can Roam: " .. tostring( self:CanRandomlyRoam() ), FrameTime()*2 )
 			debugoverlay.Text( self:GetPos() + vector_up * 15, "Can Path: " .. tostring( self.generator_spot_valid ), FrameTime()*2 )
 			debugoverlay.Text( self:GetPos() + vector_up * 20, "Bad Path: " .. tostring( self.current_path_failure ), FrameTime()*2 )
-			debugoverlay.Text( self:GetPos() + vector_up * 25, "Stuck: " .. tostring( self:IsStuck() ), FrameTime()*2 )
-			debugoverlay.Text( self:GetPos() + vector_up * 30, "Blocked: " .. tostring( self:IsBlocked() ), FrameTime()*2 )
+			debugoverlay.Text( self:GetPos() + vector_up * 25, "Blocked: " .. tostring( self:IsBlocked() ), FrameTime()*2 )
+			debugoverlay.Text( self:GetPos() + vector_up * 30, "Stuck: " .. tostring( self:IsStuck() ), FrameTime()*2 )
 		end
 	end
 
@@ -1442,7 +1445,9 @@ function ENT:GetPlayerLadder( ply, nav )
 		return
 	end
 
-	local position = ply:GetPos()
+	return nav:GetLadders()[1]
+
+	/*local position = ply:GetPos()
 	local playerZ = position.z
 	local navDir = CNavLadder.LADDER_UP
 	local navLadders = nav:GetLaddersAtSide( navDir )
@@ -1471,6 +1476,10 @@ function ENT:GetPlayerLadder( ply, nav )
 		end
 	end
 
+	if ShouldDisplayDebug( 1 ) then
+		self:GetOwner():ChatPrint('[DRONE] Player Ladder CNavDir [' .. navDir ..'] CNavLadder [' .. tostring( navLadders[1] ) .. ']')
+	end
+
 	if IsValid( testladders[ 1 ] ) then
 		self.current_player_ladder_navdir = navDir
 	elseif self.current_player_ladder_navdir then
@@ -1483,7 +1492,7 @@ function ENT:GetPlayerLadder( ply, nav )
 		end
 
 		return testladders[1]
-	end
+	end*/
 end
 
 function ENT:OpenDoor( entity, trace )
@@ -1714,6 +1723,7 @@ function ENT:TeleportToLastPathSegment()
 		self.current_path_distance = self.current_path.distanceFromStart
 		self.current_path_type = self.current_path.type
 		self.current_path_direction = ( self.current_path_goal - self.last_position ):GetNormalized()
+		self.current_path_climbing = tobool( self.current_path.climbing )
 
 		self:SetPos( self.last_position )
 
@@ -1923,7 +1933,7 @@ function ENT:FindGroundGeneratorSpot( filter )
 		vecFloor = self.current_player_nav:GetClosestPointOnArea( self:GetPos() ) + vector_up * 2
 	end
 
-	if !IsCollisionBoxClear( vecFloor, mFilter, minBounds, maxBounds ) then
+	/*if !IsCollisionBoxClear( vecFloor, mFilter, minBounds, maxBounds ) then
 		bSuccess = false
 
 		for i = 1, 4 do
@@ -1946,7 +1956,7 @@ function ENT:FindGroundGeneratorSpot( filter )
 				break
 			end
 		end
-	end
+	end*/
 
 	if ShouldDisplayDebug( 1 ) then
 		debugoverlay.Sphere( vecFloor, 20, 0.6, color_yellow_box )
@@ -2201,7 +2211,7 @@ function ENT:CurrentPathCompleted()
 		self.next_random_turn = math.max( self.next_random_turn, newRandom )
 
 		if lastPath then
-			self.desired_yaw = ( self.current_path_goal - lastPath.pos ):Angle()[2]
+			self.desired_angled = ( self.current_path_goal - lastPath.pos ):Angle()
 		end
 
 		self.current_path_goal = nil
@@ -2212,7 +2222,7 @@ function ENT:CurrentPathCompleted()
 			// drone arrived to home position
 
 			self.time_to_next_action = CurTime() + math.Rand( 2, 4 )
-			self.desired_yaw = self.home_angle[2]
+			self.desired_angled = self.home_angle
 		elseif t_FollowEnums[ self.current_action ] then
 			if self.current_action == DRONE_TO_FOLLOW_PLAYER then
 				// drone randomly roams around player
@@ -2246,7 +2256,7 @@ function ENT:CurrentPathCompleted()
 					self.next_random_roam = CurTime() + 3
 					self.next_random_turn = self.next_random_roam + FrameTime()
 
-					self.desired_yaw = ( self.current_revive_player:GetPos() - self:GetPos() ):Angle()[2]
+					self.desired_angled = ( self.current_revive_player:GetPos() - self:GetPos() ):Angle()
 
 					self.current_revive_player.DownedWithSoloRevive = true
 					self.current_revive_player:StartRevive( self.current_revive_player )
@@ -2263,7 +2273,7 @@ function ENT:CurrentPathCompleted()
 				elseif IsValid( self.current_player_goal ) and math.random( 3 ) == 1 then
 					// occasionally face towards player after pathing to look like a creep
 
-					self.desired_yaw = ( self.current_player_goal:GetPos() - self:GetPos() ):Angle()[2]
+					self.desired_angled = ( self.current_player_goal:GetPos() - self:GetPos() ):Angle()
 				end
 			elseif self.current_action == DRONE_TO_FOLLOW_TARGET then
 				// rapidly orbit the nearest target
@@ -2328,13 +2338,13 @@ function ENT:CurrentPathCompleted()
 		self.cursor_position = self.current_status == "climbing" and self:GetPos() or self.last_position
 
 		self.current_path = self.current_paths[ self.current_path_step ]
-		self.current_path_climbing = tobool( self.current_path.climbing )
 		self.current_path_nav = self.current_path.area
 		self.current_path_goal = self.current_path.pos
 		self.current_path_length = self.current_path.length
 		self.current_path_distance = self.current_path.distanceFromStart
 		self.current_path_type = self.current_path.type
 		self.current_path_direction = ( self.current_path_goal - self.last_position ):GetNormalized()
+		self.current_path_climbing = tobool( self.current_path.climbing )
 
 		// reset climbing status
 		if !self.current_path_climbing and self.current_status == "climbing" then
@@ -2361,7 +2371,7 @@ function ENT:LadderPathing()
 		end
 
 		self.current_status = "climbing"
-		self.desired_yaw = navLadder:GetNormal():GetNegated():Angle()[2]
+		self.desired_angled = navLadder:GetNormal():GetNegated():Angle()
 	end
 
 	// climbing alongside the player
@@ -2373,7 +2383,7 @@ function ENT:LadderPathing()
 		local mountZ = navLadder:GetBottom().z + math.max( ply:OBBCenter()[3], 16 )
 
 		// is the player on the ladder
-		if self.current_path_type > JUMP_OVER_GAP and ( playerZ > mountZ and goalZ < dismountZ ) and ply:GetMoveType() == MOVETYPE_LADDER and IsValid( self.current_player_ladder ) and self.current_player_ladder == self.current_ladder then
+		if self.current_path_type > JUMP_OVER_GAP and ( playerZ > mountZ and goalZ < dismountZ ) and ply:GetMoveType() == MOVETYPE_LADDER and self.current_path_climbing_with_player then
 			self.current_destination:SetUnpacked( self.current_destination[1], self.current_destination[2], goalZ + 16 )
 
 			self.current_destination:Add( navLadder:GetNormal() * 48 )
@@ -2387,7 +2397,7 @@ function ENT:LadderPathing()
 
 			self.cursor_direction = ( self.current_destination - vecOrigin ):GetNormalized()
 		else
-			if self:IsClimbingLadder() /*self.current_status == "climbing"*/ and !self:IsDismountingLadder() /*self.current_ladder_dismount == DRONE_DISMOUNT_NONE*/ then
+			if self.current_status == "climbing" and self.current_ladder_dismount == DRONE_DISMOUNT_NONE then
 				if goalZ > dismountZ then
 					if ShouldDisplayDebug( 1 ) then
 						self:GetOwner():ChatPrint("[DRONE] Player Dismounted at Top")
@@ -2465,7 +2475,7 @@ function ENT:Pathing()
 	local ply = self.current_player_goal
 
 	//local funcElevator = self.current_path_elevators[ self.current_path_step ]
-	//local pathDoor = self:GetClosestPathDoor( self.current_path_step )
+	local pathDoor = self:GetClosestPathDoor( self.current_path_step )
 	local navLadder = self.current_path_ladders[ self.current_path_step ]
 	local bClimbing = self.current_path_climbing and IsValid( navLadder )
 
@@ -2496,14 +2506,18 @@ function ENT:Pathing()
 		local bLastStep = self.current_path_step == #self.current_paths
 
 		// movement
-		local vecCurrentDir = self:GetVelocity()
-		vecCurrentDir:Normalize()
-
 		local path_total_50_pecent = self.current_path_length_total * 0.5
 		local path_length_25_percent = self.current_path_length * 0.25
 		local vecToGoal = ( self.current_destination - vecOrigin ):GetNormalized()
 
 		local flRatio = 1
+
+		local vecCurrentDir = self:GetVelocity()
+		if vecCurrentDir:Length2D() <= 2 then
+			vecCurrentDir = self:GetForward()
+		else
+			vecCurrentDir:Normalize()
+		end
 
 		local flMoveDot = vecToGoal:Dot( vecCurrentDir );
 		local flFacingDot = vecToGoal:Dot( self:GetForward() )
@@ -2513,7 +2527,7 @@ function ENT:Pathing()
 		end
 
 		// repathing system
-		if IsValid( ply ) and ( self:IsClimbing() or ( !IsValid( self.current_player_ladder ) and ( ply:GetPos().z + ply:OBBCenter()[3] ) > self:GetPos().z ) ) and t_FollowEnums[ self.current_action ] and self.current_path_length_total > self.repathing_distance then
+		if IsValid( ply ) and self.current_status ~= "climbing" and t_FollowEnums[ self.current_action ] and self.current_path_length_total > self.repathing_distance then
 
 			local flPlayerSpeed = math.Round( ply:GetVelocity():Length2D(), 3 )
 			local flPlayerMaxSpeed = ( ply.GetRunSpeed and ply:GetRunSpeed() ) or ( ply.loco and IsValid( ply.loco ) and ply.loco:GetDesiredSpeed() ) or ply:GetSequenceGroundSpeed( ply:GetSequence() )
@@ -2541,12 +2555,12 @@ function ENT:Pathing()
 			table.Add( mFilter, player.GetAll() )
 
 			// dont shortcut if were going to climb up/down a ladder soon
-			local bLadderAhead = self.current_path_step + 2 < self.next_ladder_step
+			local bLadderAhead = self.next_ladder_step >= self.current_path_step
 			if !bLadderAhead then
 				bLadderAhead = IsValid( self.next_ladder ) and self.next_ladder_direction and self.current_ground_position:Distance( self.next_ladder_direction == LADDER_DOWN and self.next_ladder:GetTop() or self.next_ladder:GetBottom() ) < 300
 			end
 
-			if self.next_ladder_step == 0 or !bLadderAhead then
+			if ( self.next_ladder_step == 0 or !bLadderAhead ) and flGoalDistanceToPlayer > self.player_nearby_repath_distance then
 				local playerPath
 				local nNode = 0
 				local nMaxs = #self.current_paths
@@ -2556,8 +2570,11 @@ function ENT:Pathing()
 					if pathData.type > ON_GROUND and i <= ( self.current_path_step + 2 ) then
 						break
 					end
+					if i == nMaxs then
+						break
+					end
 
-					if pathData and pathData.startpos and ply:GetPos():Distance( pathData.startpos ) < self.player_nearby_repath_distance then
+					if pathData and pathData.startpos and ply:GetPos():Distance( pathData.startpos ) < self.player_nearby_repath_distance and pathData.pos:Distance( self.current_path_goal ) > self.repathing_distance then
 						local trace2 = util_TraceLine({
 							start = self.current_destination,
 							endpos = pathData.pos,
@@ -2591,7 +2608,7 @@ function ENT:Pathing()
 			end
 
 			// if were close to a node, and the player is close to us, finish pathing here
-			if ( ( flDistanceToPlayer < self.player_nearby_repath_distance and flDistance < self.player_nearby_repath_node_distance ) or ( flDistanceToPlayer < self.player_nearby_repath_node_distance and self.current_path_length_total > self.player_nearby_repath_total_distance ) ) and self.current_path_type <= 0 then
+			if ( ( flDistanceToPlayer < self.player_nearby_repath_distance and flDistance < self.player_nearby_repath_node_distance ) or ( flDistanceToPlayer < self.player_nearby_repath_node_distance and self.current_path_distance > self.player_nearby_repath_total_distance ) ) and self.current_path_type <= 0 and !bLadderAhead then
 				if ShouldDisplayDebug( 1 ) then
 					self:GetOwner():ChatPrint('[DRONE] Player nearby current node, pathing stopped')
 				end
@@ -2610,7 +2627,7 @@ function ENT:Pathing()
 			// repath quicker the further the player is, or if we pass the player while on our final step
 			local bPassedPlayer = ( flPlayerDot < self.player_behind_repath_dot and ( flPlayerSpeed > ( flPlayerMaxSpeed * 0.75 ) or self.last_repath_time + self.player_behind_repath_time < CurTime() ) )
 
-			if ( flGoalDistanceToPlayer > self.player_repath_distance and self.last_repath_time + ( self.repathing_time * flRepathRatio ) < CurTime() ) or ( bPassedPlayer and self.current_path_step == #self.current_paths and self.current_path_length_total > self.player_behind_repath_total_distance ) then
+			if ( flGoalDistanceToPlayer > self.player_repath_distance and self.last_repath_time + ( self.repathing_time * flRepathRatio ) < CurTime() ) or ( bPassedPlayer and self.current_path_step == #self.current_paths and self.current_path_length_total > self.player_behind_repath_distance ) then
 				self.last_repath_time = CurTime()
 
 				self.break_current_path = true
@@ -2634,12 +2651,12 @@ function ENT:Pathing()
 		end
 
 		// passed our goal, slow down
-		if( flMoveDot < 0.25 ) then
+		if( flMoveDot < 0.25 ) and !self:IsBlocked() and !self.current_path_climbing then
 			flSpeed = flSpeed * 0.35
 		end
 
 		// facing away from goal, move slower to allow for turning around ( maybe this will make turning smoother? )
-		if ( flFacingDot < 0.5 ) then
+		if ( flFacingDot < 0.5 ) and !self.current_path_climbing then
 			flTurnRatio = math.Clamp( math.max( flFacingDot, 0 ) / 0.5, 0, 1 )
 			flTurnRatio = easedLerpInCirc( flTurnRatio, IsValid( self:GetTarget() ) and 0.75 or 0.5, 1 )
 
@@ -2651,7 +2668,7 @@ function ENT:Pathing()
 		end
 
 		// being to slow down half way through total path
-		if self.final_path_goal then
+		if self.final_path_goal and !self.current_path_climbing then
 			local flTotalDistance = math.max( self.current_path_length_total - self.current_path_distance, 0 )
 			if flTotalDistance <= path_total_50_pecent then
 				local flTotalRatio = math.Clamp( flDistance / path_total_50_pecent, 0, 1 )
@@ -2662,7 +2679,7 @@ function ENT:Pathing()
 		end
 
 		// slow down when climbing a ladder and near the player
-		if self:IsClimbingLadder() /*self.current_status == "climbing"*/ then
+		if self.current_path_climbing then
 			flRatio = math.Clamp( flDistance / ( self.current_ladder_length * 0.5 ), 0, 1 )
 			flRatio = easedLerpOut( flRatio, 0, 1)
 		else
@@ -2694,16 +2711,42 @@ function ENT:Pathing()
 		debugoverlay.Text( self:GetPos() - vector_up * 40, math.Round( flCursorDistance, 2 ), FrameTime()*2 )
 		debugoverlay.Line( vecOrigin, self.cursor_position, FrameTime() * 2, color_red )
 
-		if flCursorDistance > self.cursor_length_to_fail and !self:IsClimbingLadder() /*self.current_status ~= "climbing"*/ then
+		if flCursorDistance > self.cursor_length_to_fail and !self:IsClimbingLadder() then
 			if ShouldDisplayDebug( 1 ) then
 				self:GetOwner():ChatPrint('[DRONE] Teleporting to Next Segment, Distance [' .. math.Round( flCursorDistance, 3 ) .. ']')
 			end
+
 			// deviated to far from path
 			self:TeleportToNextPathSegment()
 			return
 		end
 
 		self.current_move_dir = LerpVector( self.current_path_type > JUMP_OVER_GAP and 0.25 or self.turning_rate, self.current_move_dir, vecToGoal )
+
+		if IsValid( self.current_door ) then
+			local flDistanceToDoor = ( vecOrigin - self.current_door:GetPos() ):Length2D()
+			if flDistanceToDoor <= self.path_door_tolerance then
+				local trace2 = util_TraceLine({
+					start = vecOrigin,
+					endpos = self.current_door:GetPos(),
+					mask = bit.band( MASK_NPCSOLID, bit.bnot( CONTENTS_MONSTER ) ),
+					filter = mFilter,
+				})
+
+				if entity:GetInternalVariable( "m_bLocked" ) then
+					if flDistanceToDoor < self.goal_tolerance then
+						if ShouldDisplayDebug( 1 ) then
+							self:GetOwner():ChatPrint('[DRONE] Locked Door, Teleporting to Next Segment, Distance [' .. math.Round( flCursorDistance, 3 ) .. ']')
+						end
+
+						self:TeleportToNextPathSegment()
+						return
+					end
+				else
+					self:OpenDoor( self.current_door, trace2 )
+				end
+			end
+		end
 
 		// you have reached your final destination, hell
 		if flDistance < ( self.current_path_type > JUMP_OVER_GAP and self.ladder_tolerance or tobool( self.current_path.scripted ) and self.scripted_tolerance or self.current_path_type > ON_GROUND and self.climb_goal_tolerance or self.goal_tolerance ) and ( !self:IsClimbingLadder() /*self.current_status ~= "climbing"*/ or self:IsDismountingLadder() /*self.current_ladder_dismount > DRONE_DISMOUNT_NONE*/ ) then
@@ -2775,7 +2818,7 @@ function ENT:Movement()
 
 	if IsValid( target ) then
 		// face towards targeted entity and reset forced facing angle
-		self.desired_yaw = nil
+		self.desired_angled = nil
 
 	elseif self.current_action == DRONE_TO_SCRIPTED and self.current_scripted_goal and ( self.current_path_step == #self.current_paths ) and !self.current_path_completed then
 		// face the script target when we are on the last step of our path but not yet completed
@@ -2783,15 +2826,15 @@ function ENT:Movement()
 	elseif self.current_speed > 0 and !self.current_path_completed then
 		// face towards next path pos
 		if IsValid( self.current_ladder ) and self.current_path_climbing then
-			if IsValid( self.current_player_ladder ) and self.current_player_ladder == self.current_ladder then
+			if self.current_path_climbing_with_player then
 				self.last_yaw_direction = 0
 
-				if self.desired_yaw then
+				if self.desired_angled then
 					// update
-					self:FaceTowards( self.desired_yaw )
+					self:FaceTowards( self.desired_angled )
 
-					if math.Round( self:GetAngles()[2], 2 ) == math.Round( self.desired_yaw, 2 ) then
-						self.desired_yaw = nil
+					if math.Round( self:GetAngles()[2], 2 ) == math.Round( self.desired_angled[2], 2 ) then
+						self.desired_angled = nil
 					end
 				end
 			else
@@ -2809,12 +2852,12 @@ function ENT:Movement()
 		// reset
 		self.last_yaw_direction = 0
 
-		if self.desired_yaw then
+		if self.desired_angled then
 			// update
-			self:FaceTowards( self.desired_yaw )
+			self:FaceTowards( self.desired_angled )
 
-			if math.Round( self:GetAngles()[2], 2 ) == math.Round( self.desired_yaw, 2 ) then
-				self.desired_yaw = nil
+			if math.Round( self:GetAngles()[2], 2 ) == math.Round( self.desired_angled[2], 2 ) then
+				self.desired_angled = nil
 			end
 		end
 	end
@@ -3025,7 +3068,7 @@ function ENT:SetupSchedule()
 			if self.next_random_turn < CurTime() then
 				self.next_random_turn = CurTime() + math.Rand( self.random_turn_delay_min, self.random_turn_delay_max )
 
-				self.desired_yaw = math.Rand( -180, 180 )
+				self.desired_angled = AngleRand(0, -180, 0, 180 )
 			end
 		end
 	elseif self.current_action == DRONE_TO_IDLE then
@@ -3033,7 +3076,7 @@ function ENT:SetupSchedule()
 		if self.current_status == "idling" and ( self.next_random_turn < CurTime() ) then
 			self.next_random_turn = CurTime() + math.Rand( self.random_turn_delay_min, self.random_turn_delay_max )
 
-			self.desired_yaw = math.Rand( -180, 180 )
+			self.desired_angled = AngleRand(0, -180, 0, 180 )
 		end
 	end
 end
@@ -3245,6 +3288,10 @@ function ENT:StuckThink()
 				self.current_stuck_counter = 0
 			else
 				self.current_stuck_counter = 1 + self.current_stuck_counter
+
+				if ShouldDisplayDebug( 1 ) and self.m_isStuck and self.current_stuck_counter == 4 then
+					self:GetOwner():ChatPrint("[DRONE] Stuck after " .. math.Round( CurTime() - self.current_stuck_start, 3 ) .. "s")
+				end
 			end
 		elseif self.current_status == "pathing" then
 			if self:GetPos():Distance( self.current_stuck_position ) > STUCK_RADIUS then
@@ -3256,7 +3303,6 @@ function ENT:StuckThink()
 			else
 				local minMoveSpeed = 0.1 * self.current_speed + 0.1
 				local escapeTime = STUCK_RADIUS / minMoveSpeed;
-
 				if ( CurTime() - self.current_stuck_start ) > escapeTime then
 					self.m_isStuck = true
 				end
@@ -3268,7 +3314,7 @@ function ENT:StuckThink()
 
 			local ply = self.current_player_goal
 			if self.current_action == DRONE_TO_FOLLOW_PLAYER and IsValid( ply ) then
-				self.current_player_nav = navmesh.GetNearestNavArea( ply:GetPos(), false, 192, true )
+				self.current_player_nav = navmesh.GetNearestNavArea( ply:GetPos(), false, 200, false )
 
 				if !self.current_path_climbing and ply:GetMoveType() ~= MOVETYPE_LADDER and !IsValid( self.current_player_nav ) then
 					self.current_player_goal = NULL
@@ -3284,8 +3330,10 @@ function ENT:StuckThink()
 					if IsValid( self.current_player_goal ) and self.current_player_goal:GetMoveType() == MOVETYPE_LADDER then
 						local navLadder = self:GetPlayerLadder( self.current_player_goal, self.current_player_nav )
 
-						if IsValid( ply ) and IsValid( navLadder ) and !IsValid( self.current_player_ladder ) and navLadder == self.current_ladder then
+						if !self.current_path_climbing_with_player and IsValid( navLadder ) and IsValid( self.current_ladder ) and navLadder == self.current_ladder then
+							self.current_path_climbing_with_player = true
 							self.current_ladder_dismount = 0
+
 							if ShouldDisplayDebug( 1 ) then
 								self:GetOwner():ChatPrint("[DRONE] Climbing ladder with Player")
 							end
@@ -3293,6 +3341,10 @@ function ENT:StuckThink()
 
 						self.current_player_ladder = navLadder
 					else
+						if self.current_path_climbing_with_player then
+							self.current_path_climbing_with_player = false
+						end
+
 						self.current_player_ladder = NULL
 					end
 				end
@@ -3541,8 +3593,8 @@ function ENT:GeneratePath( PathFollower )
 		local navMins = Vector( -sizeX, -sizeY, 0 )
 		local navMaxs = Vector( sizeX, sizeY, flHoverHeight )
 
-		navMins:Set( navArea:GetCenter() + navMins )
-		navMaxs:Set( navArea:GetCenter() + navMaxs )
+		navMins:Add( navArea:GetCenter() )
+		navMaxs:Add( navArea:GetCenter() )
 
 		for _, entity in ipairs( ents.FindInBox( navMins, navMaxs ) ) do
 			if entity:GetMoveType() == MOVETYPE_PUSH and t_DoorClasses[ entity:GetClass() ] then
@@ -3779,7 +3831,7 @@ function ENT:GeneratePath( PathFollower )
 
 		// trace bounding box along path segment to validate it
 		nLayer = 0
-		/*local nCount = math.Round( flDistance / 32 )
+		local nCount = math.Round( flDistance / 32 )
 		for i2 = 1, nCount do
 			local vecCur = vecLast + vecDirection * ( ( i2 * 32 ) - 16 )
 
@@ -3793,7 +3845,7 @@ function ENT:GeneratePath( PathFollower )
 		if !bSuccess then
 			data.failure = true
 			continue
-		end*/
+		end
 
 		// new possible path end position
 		vecDirection = ( vecEnd - vecLast ):GetNormalized()
@@ -3908,18 +3960,18 @@ function ENT:GeneratePath( PathFollower )
 	self.final_path_goal = self.final_path.pos
 
 	self.current_path_failure = self.final_path_goal:Distance( self.last_position ) < 16
-	/*if IsValid( self.current_player_goal ) and self.current_path_direction:Dot( ( self.current_player_goal:GetPos() - self.last_position ):GetNormalized() ) <= 0.2 and #self.current_path_ladders <= 0 then
+	/*if IsValid( self.current_player_goal ) and self.current_path_direction:Dot( ( self.current_player_goal:GetPos() - self.last_position ):GetNormalized() ) <= 0.2 and #self.current_path_ladders <= 0 and self.current_path_length_total > self.player_repath_distance and self.current_player_goal:GetPos():Distance( self.current_path_goal ) > self.player_repath_distance then
 		self.current_path_failure = true
 	end*/
 
-	//local pathDoor = self:GetClosestPathDoor( self.current_path_step )
+	local pathDoor = self:GetClosestPathDoor( self.current_path_step )
 	//local hElevataor = self.current_path_elevators[ self.current_path_step ]
 	local navLadder = self.current_path_ladders[ self.current_path_step ]
 	local bClimbing = self.current_path_climbing and IsValid( navLadder )
 
 	self.current_ladder = bClimbing and navLadder or NULL
 	//self.current_elevator = IsValid( hElevataor ) and hElevataor or NULL
-	//self.current_door = IsValid( pathDoor ) and pathDoor or NULL
+	self.current_door = IsValid( pathDoor ) and pathDoor or NULL
 
 	if #self.current_path_ladders > 0 then
 		for i, ladder in pairs( self.current_path_ladders ) do

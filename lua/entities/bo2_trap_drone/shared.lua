@@ -17,6 +17,10 @@ ENT.BuildableBoundsMaxs = Vector( 16, 16, 4)
 
 ENT.BlowbackCurrent = 0
 
+ENT.AugerTime = 2.4
+ENT.AugerMarkDeadTime = 0.6
+ENT.AugerSpeed = 280
+
 ENT.RPM = 700
 ENT.RPMRapid = 700
 
@@ -103,6 +107,28 @@ function ENT:SetupDataTables()
 
 	self:NetworkVar("String", "TrapClass")
 	self:NetworkVar("Bool", "Destroyed")
+	self:NetworkVar("Bool", "Upgraded")
+
+	self:SetDestroyed( false )
+	self:SetUpgraded( false )
+
+	if ( CLIENT ) then
+		self:NetworkVarNotify( "Upgraded", function( myself, name, old, new )
+			if name == "Upgraded" then
+				// stop old firing sound loop
+				if tobool( new ) and !tobool( old ) then
+					myself:StopSound( "TFA_BO2_ZMDRONE.Shoot" )
+				else
+					myself:StopSound( "TFA_BO2_ZMDRONE.Shoot.Upg" )
+				end
+
+				// if we were firing mid upgrade, somehow, restart
+				if IsValid( myself:GetTarget() ) then
+					myself:EmitSound( tobool( new ) and "TFA_BO2_ZMDRONE.Decay.Upg" or "TFA_BO2_ZMDRONE.Decay" )
+				end
+			end
+		end )
+	end
 end
 
 function ENT:EmitSoundNet(sound)
@@ -150,13 +176,10 @@ function ENT:OnRemove()
 			self:EmitSound("TFA_BO2_ZMDRONE.Teleport")
 			ParticleEffect("bo3_qed_explode_1", self:GetPos(), angle_zero)
 
-			for k, v in pairs(ents.FindByClass("nz_buildtable")) do
-				if v:GetNW2Bool("MaxisDeployed", false) then
-					v:EmitSound("TFA_BO2_ZMDRONE.Recharging")
-					v:SetNW2Float("MaxisCooldown", CurTime() + 100)
-					if IsValid(v.CraftedModel) then
-						ParticleEffect("nzr_building_poof", v.CraftedModel:WorldSpaceCenter(), angle_zero)
-					end
+			for k, v in pairs( ents.FindByClass( "nz_buildtable" ) ) do
+				if v:GetNW2Bool( "MaxisDeployed", false ) then
+					sound.Play( "TFA_BO2_ZMDRONE.Recharging", v:GetPos() + ( vector_up * v:OBBMaxs()[3] ), SNDLVL_TALKING, 100, 1 )
+					v:SetNW2Float( "MaxisCooldown", CurTime() + 100 )
 					break
 				end
 			end

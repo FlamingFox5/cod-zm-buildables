@@ -189,7 +189,7 @@ function SWEP:Equip(ply, ...)
 end
 
 function SWEP:PreSpawnProjectile(ent)
-	local ratio = ( self:Clip1() / self:GetStatL( "Primary.ClipSize" ) ) * 100
+	local ratio = ( ( self:Clip1() + 1 ) / self:GetStatL( "Primary.ClipSize" ) ) * 100 // nade base bullshit
 	ent:SetMaxHealth(500)
 	ent:SetHealth(math.Round(ratio * 5))
 	ent:SetTrapClass(self:GetClass())

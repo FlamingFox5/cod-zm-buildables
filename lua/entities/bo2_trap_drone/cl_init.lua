@@ -131,10 +131,9 @@ function ENT:Attack( endpos )
 
 	if !self.ShootingLoopSound then
 		self.ShootingLoopSound = true
-		self:EmitSound( "TFA_BO2_ZMDRONE.Shoot" )
+		self:EmitSound( self:GetUpgraded() and "TFA_BO2_ZMDRONE.Shoot.Upg" or "TFA_BO2_ZMDRONE.Shoot" )
 	end
 
-	self:EmitSound( "TFA_BO2_ZMDRONE.Decay" )
 	sound.Play( "weapons/tfa_bo2/drone/dist_00.wav", self:GetPos(), SNDLVL_GUNFIRE, math.random( 97, 103 ), 0.5 )
 
 	ParticleEffectAttach( "bo2_maxisdrone_muzzleflash", PATTACH_POINT_FOLLOW, self, 1 )
@@ -244,7 +243,8 @@ function ENT:Targeting()
 		// stop shooting
 		if self.ShootingLoopSound then
 			self.ShootingLoopSound = false
-			self:StopSound( "TFA_BO2_ZMDRONE.Shoot" )
+			self:StopSound( self:GetUpgraded() and "TFA_BO2_ZMDRONE.Shoot.Upg" or "TFA_BO2_ZMDRONE.Shoot" )
+			self:EmitSound( self:GetUpgraded() and "TFA_BO2_ZMDRONE.Decay.Upg" or "TFA_BO2_ZMDRONE.Decay" )
 		end
 
 		// activated and returning to default pose
@@ -307,6 +307,14 @@ function ENT:Blowback()
 end
 
 function ENT:LightThink()
+	if self:GetDestroyed() then
+		if self.Lamp and ( IsValid( self.Lamp ) ) then
+			self.Lamp:Remove()
+		end
+
+		return
+	end
+
 	if self.Lamp and ( IsValid( self.Lamp ) ) then
 		self.Lamp:SetPos( self:GetPos() + self:GetForward() * 16 )
 		self.Lamp:SetAngles( self:GetAngles() )

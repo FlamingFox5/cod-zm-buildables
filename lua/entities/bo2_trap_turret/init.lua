@@ -206,7 +206,7 @@ function ENT:Attack( entity, muzzle )
 				net.WriteVector( trace.HitPos )
 			net.Send( filter:GetPlayers() )
 		end,
-		Damage = entity:IsPlayer() and 23 or 45,
+		Damage = entity:IsPlayer() and 25 or 45,
 		Force = 20,
 		Num = ( IsValid( ply ) and ply.HasPerk ) and ply:HasPerk( "dtap2" ) and 2 or 1,
 		Tracer = 0,

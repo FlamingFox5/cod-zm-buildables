@@ -158,13 +158,16 @@ TFA.AddSound("TFA_BO2_FLINGER.Ready", CHAN_STATIC, 1, SNDLVL_TALKING, {95,105}, 
 
 -- Maxis Drone
 TFA.AddFireSound("TFA_BO2_ZMDRONE.Shoot", "weapons/tfa_bo2/drone/wpn_qr_turret_00.wav", false, ")")
-TFA.AddFireSound("TFA_BO2_ZMDRONE.Shoot.Upg", "weapons/tfa_bo2/drone/wpn_qr_turret_dcy_pap.wav", false, ")")
-TFA.AddFireSound("TFA_BO2_ZMDRONE.Decay", "weapons/tfa_bo2/drone/wpn_qr_turret_dcy.wav", true, ")")
+TFA.AddFireSound("TFA_BO2_ZMDRONE.Shoot.Upg", "weapons/tfa_bo2/drone/wpn_qr_turret_pap.wav", false, ")")
+TFA.AddFireSound("TFA_BO2_ZMDRONE.Decay", "weapons/tfa_bo2/drone/wpn_qr_turret_dcy.wav", false, ")")
+TFA.AddFireSound("TFA_BO2_ZMDRONE.Decay.Upg", "weapons/tfa_bo2/drone/wpn_qr_turret_dcy_pap.wav", false, ")")
 
 TFA.AddWeaponSound("TFA_BO2_ZMDRONE.Takeoff", "weapons/tfa_bo2/drone/zm_qr_takeoff.wav")
 
+TFA.AddSound("TFA_BO2_ZMDRONE.Hit", CHAN_STATIC, 1, SNDLVL_IDLE, {97,103}, { "weapons/tfa_bo2/drone/hit_00.wav", "weapons/tfa_bo2/drone/hit_01.wav" },")")
+
 TFA.AddSound("TFA_BO2_ZMDRONE.Idle", CHAN_ITEM, 1, SNDLVL_NORM, {97,103}, "weapons/tfa_bo2/drone/drone_loop.wav",")")
-TFA.AddSound("TFA_BO2_ZMDRONE.Hum", CHAN_WEAPON, 0.2, SNDLVL_NORM, {97,103}, "weapons/tfa_bo2/drone/idle_01.wav",")")
+TFA.AddSound("TFA_BO2_ZMDRONE.Hum", CHAN_BODY, 0.2, SNDLVL_NORM, {97,103}, "weapons/tfa_bo2/drone/idle_01.wav",")")
 
 TFA.AddSound("TFA_BO2_ZMDRONE.Teleport", CHAN_WEAPON, 1, SNDLVL_TALKING, {95,105}, {"weapons/tfa_bo2/drone/teleport_out_00.wav", "weapons/tfa_bo2/drone/teleport_out_01.wav"},")")
 TFA.AddSound("TFA_BO2_ZMDRONE.Recharging", CHAN_WEAPON, 1, SNDLVL_TALKING, {95,105}, "weapons/tfa_bo2/drone/maxis_folly.wav",")")

@@ -4,6 +4,7 @@ AddCSLuaFile()
 ENT.Base = "base_nextbot"
 ENT.Spawnable = false
 
+local sv_cheats = GetConVar("sv_cheats")
 local developer = GetConVar("developer")
 local nzombies = engine.ActiveGamemode() == "nzombies"
 local sp = game.SinglePlayer()
@@ -49,6 +50,14 @@ local t_FollowEnums = {
 	[DRONE_TO_FOLLOW_TARGET] = true,
 	[DRONE_TO_FOLLOW_PLAYER] = true,
 }
+
+local function ShouldDisplayDebug( devlevel )
+	if not devlevel or not isnumber( devlevel) then
+		devlevel = 1
+	end
+
+	return sv_cheats:GetBool() and developer:GetInt() >= devlevel
+end
 
 function ENT:Draw()
 	if !developer or !developer:GetBool() then return end
@@ -160,7 +169,9 @@ function ENT:CreatePathFollower( drone )
 							closest = distance
 							spot = test
 
-							debugoverlay.Cross( spot, 10, 5, color_red, true )
+							if ShouldDisplayDebug( 2 ) then
+								debugoverlay.Cross( spot, 10, 5, color_red, true )
+							end
 						end
 					end
 				else
@@ -173,7 +184,9 @@ function ENT:CreatePathFollower( drone )
 
 				local nearby = drone:FindFreeSpot( vecOrigin, 0, 256, 100, 100, true )
 				if IsValid( nearby ) then
-					debugoverlay.Cross( nearby:GetCenter(), 10, 5, color_red, true )
+					if ShouldDisplayDebug( 2 ) then
+						debugoverlay.Cross( nearby:GetCenter(), 10, 5, color_red, true )
+					end
 
 					local closest = 32767
 					for i = 1, 10 do
@@ -182,7 +195,10 @@ function ENT:CreatePathFollower( drone )
 						if distance < closest then
 							closest = distance
 							spot = test
-							debugoverlay.Cross( spot, 10, 5, color_white, true )
+
+							if ShouldDisplayDebug( 2 ) then
+								debugoverlay.Cross( spot, 10, 5, color_white, true )
+							end
 						end
 					end
 				end
@@ -219,14 +235,18 @@ function ENT:CreatePathFollower( drone )
 					closest = distance
 					spot = test
 
-					debugoverlay.Cross( spot, 10, 5, color_white, true )
+					if ShouldDisplayDebug( 2 ) then
+						debugoverlay.Cross( spot, 10, 5, color_white, true )
+					end
 				end
 			end
 		end
 	elseif action == DONE_TO_IDLE then
 
 		if drone.current_status == "roaming" then
-			debugoverlay.Text( self:EyePos() + vector_up * 15, "ROAMING", 2 )
+			if ShouldDisplayDebug( 1 ) then
+				debugoverlay.Text( self:EyePos() + vector_up * 15, "ROAMING", 2 )
+			end
 
 			spot = drone.current_roam_position
 		else
@@ -245,7 +265,9 @@ function ENT:CreatePathFollower( drone )
 			elseif IsValid( drone.current_scripted_goal ) then
 				spot = drone.current_scripted_goal:GetPos()
 			else
-				debugoverlay.Text( self:EyePos() + vector_up * 15, "SCRIPTED FAILED", 2 )
+				if ShouldDisplayDebug( 1 ) then
+					debugoverlay.Text( self:EyePos() + vector_up * 15, "SCRIPTED FAILED", 2 )
+				end
 
 				drone.current_status = "idling"
 				drone.current_action = DRONE_TO_IDLE
@@ -254,7 +276,9 @@ function ENT:CreatePathFollower( drone )
 				return
 			end
 		else
-			debugoverlay.Text( self:EyePos() + vector_up * 15, "SCRIPTED FAILED", 2 )
+			if ShouldDisplayDebug( 1 ) then
+				debugoverlay.Text( self:EyePos() + vector_up * 15, "SCRIPTED FAILED", 2 )
+			end
 
 			drone.current_status = "idling"
 			drone.current_action = DRONE_TO_IDLE
@@ -268,7 +292,9 @@ function ENT:CreatePathFollower( drone )
 		self:SetAngles( Angle( 0, ( self:GetPos() - spot ):Angle()[2], 0 ) )
 		self.loco:FaceTowards( spot )
 
-		debugoverlay.Text( spot, "SPOT", 5 )
+		if ShouldDisplayDebug( 1 ) then
+			debugoverlay.Text( spot, "SPOT", 5 )
+		end
 
 		self.SetupPathFollower = true
 		self.current_path_elevators_areas = {}
@@ -362,9 +388,9 @@ function ENT:CreatePathFollower( drone )
 					cost = cost * 2
 				end
 
-				/*if self.current_path_elevators_areas and bit_AND( attributes, NAV_MESH_HAS_ELEVATOR ) and IsValid( elevator ) then
+				if self.current_path_elevators_areas and bit_AND( attributes, NAV_MESH_HAS_ELEVATOR ) and IsValid( elevator ) then
 					self.current_path_elevators_areas[ area ] = elevator
-				end*/
+				end
 
 				return cost
 			end

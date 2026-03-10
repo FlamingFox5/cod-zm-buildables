@@ -41,9 +41,9 @@ function ENT:Touch(ent)
 	local vecPos = trace.HitPos
 	local vecMins, vecMaxs = self:GetCollisionBounds()
 
-	debugoverlay.Axis( trace.HitPos, trace.Normal:Angle(), 10, 4, true)
+	//debugoverlay.Axis( trace.HitPos, trace.Normal:Angle(), 10, 4, true)
 
-	debugoverlay.BoxAngles( self:GetPos(), vecMins, vecMaxs, self:GetAngles(), 4, Color(255, 0, 0, 0) )
+	//debugoverlay.BoxAngles( self:GetPos(), vecMins, vecMaxs, self:GetAngles(), 4, Color(255, 0, 0, 0) )
 
 	vecMins:Rotate( self:GetAngles() )
 	vecMaxs:Rotate( self:GetAngles() )
@@ -51,8 +51,8 @@ function ENT:Touch(ent)
 	vecMins:Add( self:GetPos() )
 	vecMaxs:Add( self:GetPos() )
 
-	debugoverlay.Axis( vecMins, self:GetAngles(), 10, 4, true)
-	debugoverlay.Axis( vecMaxs, self:GetAngles(), 10, 4, true)
+	//debugoverlay.Axis( vecMins, self:GetAngles(), 10, 4, true)
+	//debugoverlay.Axis( vecMaxs, self:GetAngles(), 10, 4, true)
 
 	local nearbyEnts = ents.FindInBox( vecMins, vecMaxs )
 	for k, v in pairs( nearbyEnts ) do
@@ -114,9 +114,9 @@ function ENT:StartTouch(ent)
 	local vecPos = trace.HitPos
 	local vecMins, vecMaxs = self:GetCollisionBounds()
 
-	debugoverlay.Axis( trace.HitPos, trace.Normal:Angle(), 10, 4, true)
+	//debugoverlay.Axis( trace.HitPos, trace.Normal:Angle(), 10, 4, true)
 
-	debugoverlay.BoxAngles( self:GetPos(), vecMins, vecMaxs, self:GetAngles(), 4, Color(255,0,0,0))
+	//debugoverlay.BoxAngles( self:GetPos(), vecMins, vecMaxs, self:GetAngles(), 4, Color(255,0,0,0))
 
 	vecMins:Rotate( self:GetAngles() )
 	vecMaxs:Rotate( self:GetAngles() )
@@ -124,8 +124,8 @@ function ENT:StartTouch(ent)
 	vecMins:Add( self:GetPos() )
 	vecMaxs:Add( self:GetPos() )
 
-	debugoverlay.Axis( vecMins, self:GetAngles(), 10, 4, true)
-	debugoverlay.Axis( vecMaxs, self:GetAngles(), 10, 4, true)
+	//debugoverlay.Axis( vecMins, self:GetAngles(), 10, 4, true)
+	//debugoverlay.Axis( vecMaxs, self:GetAngles(), 10, 4, true)
 
 	local bSuccess = false
 	local nearbyEnts = ents.FindInBox( vecMins, vecMaxs )

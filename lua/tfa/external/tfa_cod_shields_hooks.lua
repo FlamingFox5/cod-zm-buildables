@@ -608,6 +608,7 @@ if CLIENT then
 						G_BuildableHologram:SetModel( strModel )
 					end
 
+					// TODO: recode this so that theres a global table with each players placeable setupdata for that frame to be compared against instead
 					local flRate = 12 * FrameTime()
 					if bDrawStatus then
 						flRate = 1

@@ -211,8 +211,8 @@ function ENT:CreatePathFollower( drone )
 				self:CreatePathFollower( drone )
 			else
 				print("DRONE PATHING FAILED '"..actionName.."'\nNO VALID PLAYER TO TARGET")
-				drone.current_status = "idling"
-				drone.current_action = DRONE_TO_IDLE
+
+				drone:ActionFailed()
 
 				self.PathingFailed = true
 			end
@@ -269,8 +269,7 @@ function ENT:CreatePathFollower( drone )
 					debugoverlay.Text( self:EyePos() + vector_up * 15, "SCRIPTED FAILED", 2 )
 				end
 
-				drone.current_status = "idling"
-				drone.current_action = DRONE_TO_IDLE
+				drone:ActionFailed()
 
 				self.PathingFailed = true
 				return
@@ -280,8 +279,7 @@ function ENT:CreatePathFollower( drone )
 				debugoverlay.Text( self:EyePos() + vector_up * 15, "SCRIPTED FAILED", 2 )
 			end
 
-			drone.current_status = "idling"
-			drone.current_action = DRONE_TO_IDLE
+			drone:ActionFailed()
 
 			self.PathingFailed = true
 			return

@@ -27,8 +27,11 @@ function ENT:Draw()
 	end
 
 	// lights
-	if !self.Light or !IsValid( self.Light ) then
+	if ( !self.Light or !IsValid( self.Light ) ) and ( !self:GetDestroyed() or self.DestroyedFlicker ) then
 		self.Light = CreateParticleSystem( self, "bo2_maxisdrone_light", PATTACH_ABSORIGIN_FOLLOW, 1 )
+	elseif IsValid( self.Light ) and self:GetDestroyed() and !self.DestroyedFlicker then
+		self.Light:StopEmissionAndDestroyImmediately()
+		self.Light = NULL
 	end
 
 	if !self.Lamp then
@@ -46,7 +49,7 @@ function ENT:Draw()
 	end
 
 	local origin = self:LookupBone("origin_animate_jnt")
-	if origin then
+	if origin and ( !self:GetDestroyed() or self.DestroyedFlicker ) then
 		local matrix = self:GetBoneMatrix( origin )
 		if matrix then
 			local position = matrix:GetTranslation()
@@ -66,32 +69,30 @@ function ENT:Draw()
 end
 
 function ENT:Initialize()
-	local perks = ents.FindByClass("perk_machine")
-	if not table.IsEmpty( perks ) then
-		local pos = self:GetPos()
-		table.sort( perks, function(a, b) return a:GetPos():DistToSqr( pos ) < b:GetPos():DistToSqr( pos ) end )
-
-		local nearperk = perks[1]
-		self.nearestperk = tostring( nzPerks:Get( nearperk:GetPerkID() ).name )
-	end
-
 	self.drone_spark_wait = CurTime() + math.Rand( 0.5, 2 )
 	self.current_move_ratio = 0
 	self.next_random_jerk = CurTime() + math.Rand( 0.5, 3.5 )
 	self.current_jerk = Angle( 0, 0, 0 )
 
+	self.next_nearest_perk = CurTime()
+
+	self.DestroyedTime = math.huge
+	self.DestroyedFlicker = false
+
+	self.flicker_wait = 0
+
 	if !TFA.MaxisInitialSpawn then
 		TFA.MaxisInitialSpawn = true
 
 		timer.Simple( 0.5, function()
-			if not IsValid( self ) then return end
+			if !IsValid( self ) or !self.MaxisVoxTable["Initial_A"] then return end
 
-			self:EmitSound( self.MaxisVoxTable["Initial_A"]["vox"], SNDLVL_TALKING, 100, 0.9, CHAN_VOICE2 )
+			self:EmitSound( self.MaxisVoxTable["Initial_A"]["vox"], SNDLVL_NORM, 100, 1, CHAN_VOICE2 )
 
 			timer.Create( "MaxisDrone.VoxSchedule", 10.5, 1, function()
-				if not IsValid( self ) then return end
+				if !IsValid( self ) or !self.MaxisVoxTable["Initial_B"] then return end
 
-				self:EmitSound( self.MaxisVoxTable["Initial_B"]["vox"], SNDLVL_TALKING, 100, 0.9, CHAN_VOICE2 )
+				self:EmitSound( self.MaxisVoxTable["Initial_B"]["vox"], SNDLVL_NORM, 100, 1, CHAN_VOICE2 )
 
 				timer.Remove( "MaxisDrone.VoxSchedule" )
 			end )
@@ -100,16 +101,28 @@ function ENT:Initialize()
 end
 
 function ENT:Think()
-	self:LightThink()
+	if self.next_nearest_perk < CurTime() then
+		self.next_nearest_perk = CurTime() + 2.5
+
+		local perks = ents.FindByClass("perk_machine")
+		if not table.IsEmpty( perks ) then
+			local pos = self:GetPos()
+			table.sort( perks, function(a, b) return a:GetPos():DistToSqr( pos ) < b:GetPos():DistToSqr( pos ) end )
+
+			local nearperk = perks[1]
+			self.nearestperk = tostring( nzPerks:Get( nearperk:GetPerkID() ).name )
+		end
+	end
+
+	self:LightsThink()
+
 	self:SoundThink()
+
 	self:Targeting()
+
 	self:Blowback()
 
-	if self.drone_spark_wait and self.drone_spark_wait < CurTime() then
-		ParticleEffect( "bo2_turbine_spark", self:GetPos(), Angle(0,0,0) )
-
-		self.drone_spark_wait = CurTime() + math.Rand( 0.5, 2 )
-	end
+	self:TrailThink()
 
 	self:SetNextClientThink( CurTime() )
 	return true
@@ -176,14 +189,54 @@ function ENT:SoundThink()
 		if self.HumLoopSound and self.HumLoopSound:IsPlaying() then
 			self.HumLoopSound:Stop()
 		end
-	else
-		if !self.IdleLoopSound or !self.IdleLoopSound:IsPlaying() then
-			self.IdleLoopSound = CreateSound( self, "TFA_BO2_ZMDRONE.Idle" )
-			self.IdleLoopSound:PlayEx( 1, math.random( 97, 103 ) )
+		if self.DamagedLoopSound and self.DamagedLoopSound:IsPlaying() then
+			self.DamagedLoopSound:Stop()
 		end
-		if !self.HumLoopSound or !self.HumLoopSound:IsPlaying() then
-			self.HumLoopSound = CreateSound( self, "TFA_BO2_ZMDRONE.Hum" )
-			self.HumLoopSound:PlayEx( 1, math.random( 97, 103 ) )
+
+		if self.DestroyedTime and self.DestroyedTime + 9 > CurTime() then
+			// destroyed and burning
+			if !self.BurningLoopSound or !self.BurningLoopSound:IsPlaying() then
+				self:EmitSound( "NZ.Tomb.Torch.Ignite" )
+
+				self.BurningLoopSound = CreateSound( self, "NZ.Tomb.Torch.Loop" )
+				self.BurningLoopSound:PlayEx( 1, math.random( 97, 103 ) )
+			end
+		elseif self:GetMoveType() == MOVETYPE_NONE then
+			// has been dead on the ground long enough
+			if self.BurningLoopSound and self.BurningLoopSound:IsPlaying() then
+				self.BurningLoopSound:Stop()
+
+				self:EmitSound( "NZ.Tomb.Torch.Putout" )
+			end
+		end
+	else
+		if self.BurningLoopSound and self.BurningLoopSound:IsPlaying() then
+			self.BurningLoopSound:Stop()
+		end
+
+		if self:Health() <= 0 then
+			// auger death spiral loop
+			if self.HumLoopSound and self.HumLoopSound:IsPlaying() then
+				self.HumLoopSound:Stop()
+			end
+			if !self.DamagedLoopSound or !self.DamagedLoopSound:IsPlaying() then
+				self.DamagedLoopSound = CreateSound( self, "TFA_BO2_ZMDRONE.Damaged" )
+				self.DamagedLoopSound:PlayEx( 1, math.random( 97, 103 ) )
+			end
+		else
+			if self.DamagedLoopSound and self.DamagedLoopSound:IsPlaying() then
+				self.DamagedLoopSound:Stop()
+			end
+
+			// default looping sounds
+			if !self.IdleLoopSound or !self.IdleLoopSound:IsPlaying() then
+				self.IdleLoopSound = CreateSound( self, "TFA_BO2_ZMDRONE.Idle" )
+				self.IdleLoopSound:PlayEx( 1, math.random( 97, 103 ) )
+			end
+			if !self.HumLoopSound or !self.HumLoopSound:IsPlaying() then
+				self.HumLoopSound = CreateSound( self, "TFA_BO2_ZMDRONE.Hum" )
+				self.HumLoopSound:PlayEx( 1, math.random( 97, 103 ) )
+			end
 		end
 	end
 end
@@ -306,25 +359,51 @@ function ENT:Blowback()
 	end
 end
 
-function ENT:LightThink()
+function ENT:LightsThink()
 	if self:GetDestroyed() then
-		if self.Lamp and ( IsValid( self.Lamp ) ) then
-			self.Lamp:Remove()
+		local flFixTPS = ( 66 / ( 1 / engine.TickInterval() ) )
+
+		if self.DestroyedFlicker and self.flicker_wait < CurTime() then
+			self.DestroyedFlicker = false
 		end
 
-		return
+		local flMult = 0
+		if self.DestroyedTime and self.DestroyedTime + 5 < CurTime() then
+			flMult = 1 - math.Clamp( ( ( self.DestroyedTime + 15 ) - CurTime() ) / 10 , 0, 1 )
+		end
+
+		if !self.DestroyedFlicker then
+			self.DestroyedFlicker = math.random( ( 30 / flFixTPS ) + ( ( 120 / flFixTPS ) * flMult ) ) == 1
+
+			if self.DestroyedFlicker then
+				local flTime = math.Rand( 0, 0.12 )
+				if math.random( 4 ) == 1 then
+					flTime = flTime * ( math.random( 2 ) == 1 and math.Rand( 1, 3 ) or 2 )
+				end
+
+				self.flicker_wait = CurTime() + flTime
+			end
+		end
+	end
+
+	if ( !self:GetDestroyed() or self.DestroyedFlicker ) and self.drone_spark_wait and self.drone_spark_wait < CurTime() then
+		ParticleEffect( "bo2_turbine_spark", self:GetPos(), Angle(0,0,0) )
+
+		self.drone_spark_wait = CurTime() + math.Rand( 0.5, 2 )
 	end
 
 	if self.Lamp and ( IsValid( self.Lamp ) ) then
 		self.Lamp:SetPos( self:GetPos() + self:GetForward() * 16 )
 		self.Lamp:SetAngles( self:GetAngles() )
 
-		if self:GetDestroyed() and math.random( 30 ) == 1 then
-			self.Lamp:SetFarZ( 0 )
-			self.Lamp:SetFOV( 0 )
-		elseif self.Lamp:GetFarZ() ~= 512 then
-			self.Lamp:SetFarZ( 512 )
-			self.Lamp:SetFOV( 54 )
+		if self:GetDestroyed() then
+			if self.DestroyedFlicker then
+				self.Lamp:SetFarZ( 512 )
+				self.Lamp:SetFOV( 54 )
+			else
+				self.Lamp:SetFarZ( 0 )
+				self.Lamp:SetFOV( 0 )
+			end
 		end
 
 		self.Lamp:Update()
@@ -332,9 +411,54 @@ function ENT:LightThink()
 
 	if DynamicLight and self.dlight and self.dlight.DieTime then
 		local muzzle = self:GetAttachment( 1 )
-		if self.dlight.DieTime > CurTime() and muzzle then
+		if self.dlight.DieTime > CurTime() and muzzle and muzzle.Pos then
 			self.dlight.pos = muzzle.Pos
 			self.dlight.dir = muzzle.Ang:Forward()
+		end
+	end
+end
+
+function ENT:TrailThink()
+	local nLifeState = self:GetInternalVariable( "m_lifeState" )
+
+	local desired_trail = nil
+
+	if self:Health() > ( self:GetMaxHealth() / 2 ) and IsValid( self.Trail ) then
+		// were healthy again (somehow)
+		self.Trail:StopEmissionAndDestroyImmediately()
+		self.Trail = NULL
+
+	elseif self:Health() <= 0 then
+		// auger death spiraling
+		if !self:GetDestroyed() then
+			desired_trail = "bo2_maxisdrone_dead_trail"
+		end
+
+	elseif self:Health() < 45 then
+		desired_trail = "bo2_maxisdrone_dying_trail"
+
+	elseif self:Health() < ( self:GetMaxHealth() / 4 ) then
+		desired_trail = "bo2_maxisdrone_critical_trail"
+
+	elseif self:Health() < ( self:GetMaxHealth() / 3 ) then
+		desired_trail = "bo2_maxisdrone_damaged_trail"
+
+	end
+
+	if self.DestroyedTime and self.DestroyedTime + 15 < CurTime() then
+		if IsValid( self.Trail ) then
+			self.Trail:StopEmission()
+			self.Trail = NULL
+		end
+
+	elseif desired_trail ~= nil then
+		if ( !self.Trail or !IsValid( self.Trail ) ) then
+			self.Trail = CreateParticleSystem( self, desired_trail, PATTACH_ABSORIGIN_FOLLOW, 1 )
+		end
+
+		if ( IsValid( self.Trail ) and self.Trail:GetEffectName() ~= desired_trail ) then
+			self.Trail:StopEmissionAndDestroyImmediately()
+			self.Trail = NULL
 		end
 	end
 end

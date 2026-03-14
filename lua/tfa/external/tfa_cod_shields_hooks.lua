@@ -44,6 +44,133 @@ end
 
 -- Hooks
 if SERVER then
+	hook.Add( "OnEntityCreated", "FOXBUILDS.DieselDrone.Ping", function( entity )
+		if entity:GetClass() == "ent_ping_marker" then
+			timer.Simple( 0, function()
+				if !IsValid( entity ) then return end
+
+				local position = entity:GetPos()
+
+				local trace = util_TraceLine({
+					start = position,
+					endpos = position + vector_down_128,
+					mask = MASK_NPCWORLDSTATIC,
+					filter = entity,
+				})
+
+				if trace.Hit then
+					local owner = entity:GetNWString( "Owner" )
+					local ply = NULL
+					for _, player in ipairs( player.GetAll() ) do
+						if player:Nick() == owner then
+							ply = player
+							break
+						end
+					end
+
+					if !IsValid( ply ) then
+						owner = entity:GetOwner()
+						if IsValid( owner ) and owner:IsPlayer() then
+							ply = owner
+						end
+					end
+
+					if IsValid( ply ) then
+						local drone = ply.MaxisDrone
+
+						if IsValid( drone ) then
+							local pingtype = entity:GetNWString( "PingType" )
+							local pinged = entity:GetParent()
+
+							if pingtype == "look" then
+								local trace2 = {}
+								util_TraceLine({
+									start = drone:GetPos(),
+									endpos = position + vecOrbitOffset,
+									mask = MASK_NPCWORLDSTATIC,
+									filter = entity,
+									output = trace2,
+								})
+
+								if !trace2.Hit then
+									drone:DirectPathToScripted( trace.HitPos + vecOrbitOffset )
+								end
+							elseif t_DronePings[ pingtype ] then
+								if drone.marked_target then
+									drone.marked_target = false
+								end
+
+								if pingtype == "assist" then
+									if IsValid( pinged ) then
+										drone:PathToPlayer( pinged )
+									end
+									return
+								end
+
+								if IsValid( pinged ) and pinged:GetClass() == "drop_powerup" then
+									drone:PathToScripted( pinged )
+								else
+									for _, drop in ipairs( ents.FindInSphere( position, 100 ) ) do
+										if IsValid( drop ) and drop:GetClass() == "drop_powerup" then
+											drone:PathToScripted( drop )
+											return
+										end
+									end
+
+									if pingtype == "default" then
+										return
+									end
+
+									drone:PathToScripted( trace.HitPos + drone.current_ground_offset, t_DronePings[ pingtype ] )
+								end
+							elseif pingtype == "enemy" then
+								if IsValid( pinged ) then
+									if ( pinged:IsNPC() or pinged:IsNextBot() ) and !drone.marked_target then
+										drone.marked_target = true
+										drone:SetTarget( pinged )
+									else
+										drone:PathToTarget( pinged )
+									end
+								end
+							end
+						end
+					end
+				end
+			end )
+		end
+	end )
+
+	concommand.Add("zm_maxis_drone_tp_home", function(ply)
+		local drone = ply.MaxisDrone
+		if !IsValid( drone ) then
+			return
+		end
+
+		drone:TeleportToHome()
+	end)
+
+	concommand.Add("zm_maxis_drone_tp_end", function(ply)
+		local drone = ply.MaxisDrone
+		if !IsValid( drone ) then
+			return
+		end
+
+		if !drone:IsPathing() then
+			return
+		end
+
+		drone:TeleportToLastPathSegment()
+	end)
+
+	concommand.Add("zm_maxis_drone_tp_player", function(ply)
+		local drone = ply.MaxisDrone
+		if !IsValid( drone ) then
+			return
+		end
+
+		drone:TeleportToPlayer()
+	end)
+
 	local function DropShield(ply, shield)
 		if not IsValid(ply) then return end
 		if ply.NextTrapUse and ply.NextTrapUse > CurTime() then return end

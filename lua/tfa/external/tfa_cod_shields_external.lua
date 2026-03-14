@@ -159,8 +159,13 @@ PrecacheParticleSystem("bo2_mowerturret_leak")
 PrecacheParticleSystem("bo2_mowerturret_muzzleflash")
 PrecacheParticleSystem("bo2_mowerturret_tracer")
 
+// Maxis
 PrecacheParticleSystem("bo2_maxisdrone_muzzleflash")
 PrecacheParticleSystem("bo2_maxisdrone_light")
+PrecacheParticleSystem("bo2_maxisdrone_damaged_trail")
+PrecacheParticleSystem("bo2_maxisdrone_critical_trail")
+PrecacheParticleSystem("bo2_maxisdrone_dying_trail")
+PrecacheParticleSystem("bo2_maxisdrone_dead_trail")
 
 // Shield Electricity
 PrecacheParticleSystem("bo3_shield_electrify")
@@ -185,3 +190,26 @@ if SERVER and nzombies then
 		TFA.WWNoTargetIngore = WonderWeaponNoTarget
 	end
 end
+
+if not matproxy then return end
+
+matproxy.Add({
+	name = "TFA_MaxisGlow",
+
+	init = function( self, mat, values )
+		self.ResultTo = values.resultvar
+	end,
+
+	bind = function( self, mat, ent )
+		if not IsValid( ent ) or not ent.GetDestroyed then
+			return
+		end
+
+		local int = 1
+		if ent:GetDestroyed() and !ent.DestroyedFlicker then
+			int = 0
+		end
+
+		mat:SetInt( self.ResultTo, int )
+	end
+})

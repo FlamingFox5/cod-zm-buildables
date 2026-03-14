@@ -168,6 +168,7 @@ TFA.AddSound("TFA_BO2_ZMDRONE.Hit", CHAN_STATIC, 1, SNDLVL_IDLE, {97,103}, { "we
 
 TFA.AddSound("TFA_BO2_ZMDRONE.Idle", CHAN_ITEM, 1, SNDLVL_NORM, {97,103}, "weapons/tfa_bo2/drone/drone_loop.wav",")")
 TFA.AddSound("TFA_BO2_ZMDRONE.Hum", CHAN_BODY, 0.2, SNDLVL_NORM, {97,103}, "weapons/tfa_bo2/drone/idle_01.wav",")")
+TFA.AddSound("TFA_BO2_ZMDRONE.Damaged", CHAN_BODY, 1, SNDLVL_NORM, {97,103}, {"weapons/tfa_bo2/drone/veh_qrdrone_dmg_loop_1.wav", "weapons/tfa_bo2/drone/veh_qrdrone_dmg_loop_2.wav"},")")
 
 TFA.AddSound("TFA_BO2_ZMDRONE.Teleport", CHAN_WEAPON, 1, SNDLVL_TALKING, {95,105}, {"weapons/tfa_bo2/drone/teleport_out_00.wav", "weapons/tfa_bo2/drone/teleport_out_01.wav"},")")
 TFA.AddSound("TFA_BO2_ZMDRONE.Recharging", CHAN_WEAPON, 1, SNDLVL_TALKING, {95,105}, "weapons/tfa_bo2/drone/maxis_folly.wav",")")

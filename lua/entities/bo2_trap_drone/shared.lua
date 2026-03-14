@@ -17,9 +17,8 @@ ENT.BuildableBoundsMaxs = Vector( 16, 16, 4)
 
 ENT.BlowbackCurrent = 0
 
-ENT.AugerTime = 2.4
-ENT.AugerMarkDeadTime = 0.6
-ENT.AugerSpeed = 280
+ENT.AugerTime = 2.5
+ENT.AugerSpeed = 400
 
 ENT.RPM = 700
 ENT.RPMRapid = 700
@@ -113,6 +112,15 @@ function ENT:SetupDataTables()
 	self:SetUpgraded( false )
 
 	if ( CLIENT ) then
+		self:NetworkVarNotify( "Destroyed", function( myself, name, old, new )
+			if name == "Destroyed" then
+				// stop old firing sound loop
+				if tobool( new ) and !tobool( old ) then
+					myself.DestroyedTime = CurTime()
+				end
+			end
+		end )
+
 		self:NetworkVarNotify( "Upgraded", function( myself, name, old, new )
 			if name == "Upgraded" then
 				// stop old firing sound loop
@@ -124,44 +132,29 @@ function ENT:SetupDataTables()
 
 				// if we were firing mid upgrade, somehow, restart
 				if IsValid( myself:GetTarget() ) then
-					myself:EmitSound( tobool( new ) and "TFA_BO2_ZMDRONE.Decay.Upg" or "TFA_BO2_ZMDRONE.Decay" )
+					myself:EmitSound( tobool( new ) and "TFA_BO2_ZMDRONE.Shoot.Upg" or "TFA_BO2_ZMDRONE.Shoot" )
 				end
 			end
 		end )
 	end
 end
 
-function ENT:EmitSoundNet(sound)
-	if CLIENT or sp then
-		if sp and not IsFirstTimePredicted() then return end
-
-		self:EmitSound(sound)
-		return
-	end
-
-	local filter = RecipientFilter()
-	filter:AddPAS(self:GetPos())
-	if IsValid(self:GetOwner()) then
-		filter:RemovePlayer(self:GetOwner())
-	end
-
-	net.Start("tfaSoundEvent", true)
-	net.WriteEntity(self)
-	net.WriteString(sound)
-	net.Send(filter)
-end
-
 function ENT:OnRemove()
 	self:StopSound( "TFA_BO2_ZMDRONE.Idle" )
 	self:StopSound( "TFA_BO2_ZMDRONE.Hum" )
+	self:StopSound( "TFA_BO2_ZMDRONE.Damaged" )
 	self:StopSound( "TFA_BO2_ZMDRONE.Shoot" )
+	self:StopSound( "TFA_BO2_ZMDRONE.Shoot.Upg" )
 
 	if CLIENT then
-		if self.Lamp and IsValid( self.Lamp ) then
-			self.Lamp:Remove()
+		if self.Trail and IsValid( self.Trail ) then
+			self.Trail:StopEmissionAndDestroyImmediately()
 		end
 		if self.Light and IsValid( self.Light ) then
 			self.Light:StopEmissionAndDestroyImmediately()
+		end
+		if self.Lamp and IsValid( self.Lamp ) then
+			self.Lamp:Remove()
 		end
 		if self.IdleLoopSound and self.IdleLoopSound:IsPlaying() then
 			self.IdleLoopSound:Stop()
@@ -169,7 +162,15 @@ function ENT:OnRemove()
 		if self.HumLoopSound and self.HumLoopSound:IsPlaying() then
 			self.HumLoopSound:Stop()
 		end
+		if self.DamagedLoopSound and self.DamagedLoopSound:IsPlaying() then
+			self.DamagedLoopSound:Stop()
+		end
+		if self.BurningLoopSound and self.BurningLoopSound:IsPlaying() then
+			self.BurningLoopSound:Stop()
+		end
 	end
+
+	self:StopParticles()
 
 	if SERVER then
 		if nzombies and self:GetDestroyed() then
